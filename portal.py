@@ -3,6 +3,7 @@ import random
 import threading
 import numpy as np
 import opc
+import time
 
 class Portal(object):
 	def __init__(self, faction = 'neutral', level = '0', buf = 2048):
@@ -47,10 +48,13 @@ class Portal(object):
 		self.enl = [self.wraith, self.wraith2, self.static, self.heartbeat, self.beeps, self.ring, self.swell, self.wind]
 		self.res = [self.energy, self.pulse_stereo, self.pulse_warm, self.crystal, self.beeps, self.ring, self.swell, self.wind]
 		self.neu = [self.n_crystal, self.impacts, self.whale, self.whale_alt, self.beeps, self.ring, self.swell, self.wind]
-		
+		#speech = pygame.mixer.Channel(7)
 		
 		#triggered on action sounds
 		self.reso_deploy = pygame.mixer.Sound('./sounds/sfx_resonator_power_up.ogg')
+		self.ada_portal = pygame.mixer.Sound('./sounds/speech_portal_en.ogg')
+		self.ada_online = pygame.mixer.Sound('./sounds/speech_online_en.ogg')
+		self.ada_goodwork = pygame.mixer.Sound('./sounds/speech_good_work_en.ogg')
 		
 		#-----LIGHTS-------
 		#
@@ -58,10 +62,10 @@ class Portal(object):
 		ADDRESS = 'localhost:7890'
 
 		# Create a client object
-		client = opc.Client(ADDRESS)
+		self.client = opc.Client(ADDRESS)
 
 		# Test if it can connect
-		if client.can_connect():
+		if self.client.can_connect():
 			print 'connected to %s' % ADDRESS
 		else:
 		    # We could exit here, but instead let's just print a warning
@@ -72,12 +76,14 @@ class Portal(object):
 		#--setup lighting color vars etc
 		#
 		#colors is rgb for L1-L8
-		colors = [(255, 240, 0),(255, 200, 22),(239, 113, 2),(242, 4, 40),(255, 0, 144),(255, 0, 220),(229, 29, 226),(171, 15, 188)]
-		blk = [(0,0,0)]
+		self.colors = [(255, 240, 0),(255, 200, 22),(239, 113, 2),(242, 4, 40),(255, 0, 144),(255, 0, 220),(229, 29, 226),(171, 15, 188)]
+		self.blk = [(0,0,0)]
 		
 		
-		pixels = []     #TODO: list of lists to hold all pixels for all resos?
-		link_len = 64   #num of LEDs in link, fadecandy max 64 per channel
+		self.link_len = 64   #num of LEDs in link, fadecandy max 64 per channel
+		self.pixels = self.blk*self.link_len     #TODO: list of lists to hold all pixels for all resos?
+		self.client.put_pixels(self.pixels,channel=0) #TODO: channel=all
+		self.client.put_pixels(self.pixels,channel=0)
 		    
 		#-----OTHER PORTAL PROPERTIES & VARS
 		#   
@@ -133,15 +139,38 @@ class Portal(object):
 			self.resos[0][loc] = rank
 			self.resos[1][loc] = 100
 			self.reso_deploy.play()
-			pixels = colors[rank]*link_len
-			if client.put_pixels(pixels, channel=loc):
+			if self.client.put_pixels(self.pixels, channel=loc):
+				for i in range(self.link_len):
+					self.pixels[i] = self.colors[rank-1]
+					self.client.put_pixels(self.pixels, channel=loc)
+					time.sleep(0.05)
+				self.client.put_pixels(self.pixels, channel=loc)
+				if rank == 1:
+					self.ada_portal.play()
+					time.sleep(self.ada_portal.get_length())
+					self.ada_online.play()
+					time.sleep(self.ada_online.get_length())
+					self.ada_goodwork.play()
 				o = 'sent'
 			else:
 				o = 'not connected'
-			return o + self.get_level()
+			return o
 	def get_resos(self):
 		return self.resos
-	
+	def destroy_reso(self, loc):
+		self.resos[0][loc] = 0
+		self.resos[1][loc] = 0
+		self.b = 255
+		while self.b >= 20:
+			self.pixels = [(self.b,self.b,self.b)]*self.link_len
+			self.client.put_pixels(self.pixels,channel=0)
+			self.client.put_pixels(self.pixels,channel=0)
+			time.sleep(0.1)
+			self.pixels = self.blk*self.link_len
+			self.client.put_pixels(self.pixels,channel=0)
+			self.client.put_pixels(self.pixels,channel=0)
+			self.b = self.b/2
+				
 			
 	#PLAY BACKGROUND loop for current faction
 	def play_music(self, vol = 1.0):
