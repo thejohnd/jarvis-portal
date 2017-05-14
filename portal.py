@@ -4,12 +4,14 @@ import threading
 import numpy as np
 import opc
 import time
+import serial
 
 class Portal(object):
-	def __init__(self, faction = 'neutral', level = '0', buf = 2048):
+	def __init__(self, faction = 'neutral', level = 1, start_fcclient = True, start_serial = True):
 		#
 		#---PYGAME SOUNDS---------
 		#
+		self._buf = 2048
 		#init pygame mixer if needed--------------
 		if pygame.mixer.get_init() == None:
 			pygame.mixer.pre_init(44100, -16, 2, buf)
@@ -56,22 +58,10 @@ class Portal(object):
 		self.ada_online = pygame.mixer.Sound('./sounds/speech_online_en.ogg')
 		self.ada_goodwork = pygame.mixer.Sound('./sounds/speech_good_work_en.ogg')
 		
-		#-----LIGHTS-------
-		#
-		#---------define Fadecandy OPC Client--------------
-		ADDRESS = 'localhost:7890'
-
-		# Create a client object
-		self.client = opc.Client(ADDRESS)
-
-		# Test if it can connect
-		if self.client.can_connect():
-			print 'connected to %s' % ADDRESS
-		else:
-		    # We could exit here, but instead let's just print a warning
-		    # and then keep trying to send pixels in case the server
-		    # appears later
-		    raise Warning('WARNING: could not connect to %s' % ADDRESS)
+		#-----Start HW Interfaces
+		if start_fcclient:
+			init_fcclient(ADDRESS_2='') #init only FC board 1 until we have both set up
+			init_serial() #Set USB serial port here if necessary
 		
 		#--setup lighting color vars etc
 		#
@@ -84,32 +74,75 @@ class Portal(object):
 		self.pixels = self.blk*self.link_len     #TODO: list of lists to hold all pixels for all resos?
 		self.client.put_pixels(self.pixels,channel=0) #TODO: channel=all
 		self.client.put_pixels(self.pixels,channel=0)
-		    
+		
 		#-----OTHER PORTAL PROPERTIES & VARS
 		#   
 		#set starting portal properties
 		self.faction = faction
+		self._faclist = ['neu','enl','res']
 		self.level = level
 		self._fxplay = False
 		self.resos = [[0,0,0,0,0,0,0,0] , [0,0,0,0,0,0,0,0]]
+	
+	#-----LIGHTS-------
+	#
+	#---------define Fadecandy OPC Client--------------
+	def init_fcclient(self, ADDRESS_1 = 'localhost:7890', ADDRESS_2 = 'localhost:7891'):
 		
-		
+		# Create a client object
+		self.client = opc.Client(ADDRESS_1)
+		if ADDRESS_2:
+			self.client2 = opc.Client(ADDRESS_2)
+
+		# Test if it can connect
+		if self.client.can_connect():
+			print 'connected to %s' % ADDRESS_1
+		else:
+		    # We could exit here, but instead let's just print a warning
+		    # and then keep trying to send pixels in case the server
+		    # appears later
+		    print 'WARNING: could not connect to %s... Is fcserver running?\nClient will retry connection each time a pixel update is sent' % ADDRESS_1
+		if self.client2.can_connect():
+			print 'connected to %s' % ADDRESS_2
+		else:
+		    # We could exit here, but instead let's just print a warning
+		    # and then keep trying to send pixels in case the server
+		    # appears later
+		    print 'WARNING: could not connect to %s... Is fcserver running?\nClient will retry connection each time a pixel update is sent' % ADDRESS_2
+	
+	def init_serial(self, port = '/dev/ttyUSB0'):
+		#----serial interface to Arduino for DMX & Relay switch
+		## MAKE SURE TO SET USB PORT FOR CURRENT SYTEM CONFIG!!! 
+		self.srl = serial.Serial(port,9600)
+		print 'Using serial port %s' % self.srl.name	
 	
 	#get/set FACTION
 	def get_faction(self):
 		return self.faction
+	
 	def set_faction(self, faction):
-		if faction != self.faction:
+		if faction != self.faction and (faction in _faclist):
 			if pygame.mixer.music.get_busy():
 				pygame.mixer.fadeout(self.fadeTime)
 				self.faction = faction
 				self.play_music()
 			else:
 				self.faction = faction
-			return 1
+			if self.srl.name:
+				self.srl.write(self._fac(self.faction))
+				print 'Faction lighting set to %s' % self.faction
+			else:
+				print 'Serial connection not enabled, lighting data not set'
+			return self.faction
 		else:
 			return 0
-		
+	
+	def _fac(self, f):  # 
+		return {
+			'neu' : bytes(0),
+			'enl' : bytes(1),
+			'res' : bytes(2),
+		}[f]	
 	
 	#RESOS & PORTAL LEVEL
 	# - Resos are stored as the 2d array: resos[reso_level,reso_health]
@@ -117,19 +150,19 @@ class Portal(object):
 	#   as the North slot (red dot in scanner), proceeding clockwise
 	#    - get_level() recalculates the portal level from deployed resos,
 	#      and returns level as int
-	#    - deploy_resos(reso_slot,reso_level) adds a reso at full health &
+	#    - deploy_reso(reso_slot,reso_level) adds a reso at full health &
 	#      triggers deploy FX
 	#    - 
 	def get_level(self):
 		self._lvl = np.sum(self.resos[0],dtype='float16')/8
-		if 0 < self._lvl < 1:
+		if self._lvl < 1:
 			self.level = 1
 		else:
 			self.level = int(self._lvl)
 		return self.level
 		#set-brightness based on health?	
 	def deploy_reso(self, loc, rank):
-		if rank < 0 or rank > 8:
+		if rank < 1 or rank > 8:
 			raise Warning('Invalid Resonator Level - Not Deployed')
 		elif rank <= self.resos[0][loc]:
 			raise Warning('Deploy Failed - Not an Upgrade')
@@ -170,7 +203,16 @@ class Portal(object):
 			self.client.put_pixels(self.pixels,channel=0)
 			self.client.put_pixels(self.pixels,channel=0)
 			self.b = self.b/2
-				
+	def set_reso_health(self, loc, health):
+		if health < 100:
+			raise Warning('Invalid Health Value %h for Reso %l : Health not set' % health,loc)
+		elif health <= 0:
+			self.destroy_reso(loc)
+			print 'Reso %l destroyed' % loc+1
+		else:
+			self.resos[1][loc] = health
+			#TODO set link brightness based on health
+			return	'Reso %r=%l,%h' % loc,self.resos[0][loc],self.resos[1][loc]
 			
 	#PLAY BACKGROUND loop for current faction
 	def play_music(self, vol = 1.0):
