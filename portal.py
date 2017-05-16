@@ -71,9 +71,13 @@ class Portal(object):
 		
 		
 		self.link_len = 64   #num of LEDs in link, fadecandy max 64 per channel
-		self.pixels = self.blk*self.link_len     #TODO: list of lists to hold all pixels for all resos?
-		self.client.put_pixels(self.pixels,channel=0) #TODO: channel=all
-		self.client.put_pixels(self.pixels,channel=0)
+		self.start_channel = 0
+		self.pixels = self.blk*512
+		self.pixels2 = self.blk*512   #TODO: list of lists to hold all pixels for all resos?
+		self.client.put_pixels(self.pixels) #TODO: channel=all
+		self.client.put_pixels(self.pixels)
+		self.client2.put_pixels(self.pixels)
+		self.client2.put_pixels(self.pixels)
 		
 		#-----OTHER PORTAL PROPERTIES & VARS
 		#   
@@ -81,6 +85,7 @@ class Portal(object):
 		self.faction = faction
 		self._faclist = ['neu','enl','res']
 		self.level = level
+		self._lvl = np.sum(self.resos[0],dtype='float16')/8
 		self._fxplay = False
 		self.resos = [[0,0,0,0,0,0,0,0] , [0,0,0,0,0,0,0,0]]
 	
@@ -109,6 +114,7 @@ class Portal(object):
 		    # and then keep trying to send pixels in case the server
 		    # appears later
 		    print 'WARNING: could not connect to %s... Is fcserver running?\nClient will retry connection each time a pixel update is sent' % ADDRESS_2
+		self.clients = [self.client,self.client2]
 	
 	def init_serial(self, port = '/dev/ttyUSB0'):
 		#----serial interface to Arduino for DMX & Relay switch
@@ -130,6 +136,8 @@ class Portal(object):
 				self.faction = faction
 			if self.srl.name:
 				self.srl.write(self._fac(self.faction))
+				if self. faction == 'neutral':
+					self.srl.write(bytes(5))
 				print 'Faction lighting set to %s' % self.faction
 			else:
 				print 'Serial connection not enabled, lighting data not set'
@@ -139,9 +147,9 @@ class Portal(object):
 	
 	def _fac(self, f):  # 
 		return {
-			'neu' : bytes(0),
-			'enl' : bytes(1),
-			'res' : bytes(2),
+			'neu' : bytes('n'),
+			'enl' : bytes('e'),
+			'res' : bytes('r'),
 		}[f]	
 	
 	#RESOS & PORTAL LEVEL
@@ -172,22 +180,44 @@ class Portal(object):
 			self.resos[0][loc] = rank
 			self.resos[1][loc] = 100
 			self.reso_deploy.play()
-			if self.client.put_pixels(self.pixels, channel=loc):
-				for i in range(self.link_len):
-					self.pixels[i] = self.colors[rank-1]
-					self.client.put_pixels(self.pixels, channel=loc)
-					time.sleep(0.05)
-				self.client.put_pixels(self.pixels, channel=loc)
-				if rank == 1:
-					self.ada_portal.play()
-					time.sleep(self.ada_portal.get_length())
-					self.ada_online.play()
-					time.sleep(self.ada_online.get_length())
-					self.ada_goodwork.play()
-				o = 'sent'
-			else:
-				o = 'not connected'
-			return o
+			if 0 <= loc <= 2 or loc == 7:
+				if self.client.put_pixels(self.pixels):
+					self.set_pixel_range(loc)			
+					for i in range(self.start_channel,self.start_channel + self.link_len):
+						self.pixels[i] = self.colors[rank-1]
+						self.client.put_pixels(self.pixels)
+						time.sleep(0.05)
+					self.client.put_pixels(self.pixels)
+					if self._lvl==0:
+						self.ada_portal.play()
+						time.sleep(self.ada_portal.get_length())
+						self.ada_online.play()
+						time.sleep(self.ada_online.get_length())
+						self.ada_goodwork.play()
+					o = 'sent'
+				else:
+					o = 'Fadecandy1 not connected'
+				self.get_level()
+				return o
+			elif 3 >= loc <= 6:
+				if self.client2.put_pixels(self.pixels2):
+					self.set_pixel_range(loc)
+					for i in range(self.start_channel,self.start_channel + self.link_len):
+						self.pixels2[i] = self.colors[rank-1]
+						self.client.put_pixels2(self.pixels)
+						time.sleep(0.05)
+					self.client2.put_pixels(self.pixels)
+					if self._lvl==0:
+						self.ada_portal.play()
+						time.sleep(self.ada_portal.get_length())
+						self.ada_online.play()
+						time.sleep(self.ada_online.get_length())
+						self.ada_goodwork.play()
+					o = 'sent'
+				else:
+					o = 'Fadecandy1 not connected'
+				self.get_level()
+				return o
 	def get_resos(self):
 		return self.resos
 	def destroy_reso(self, loc):
@@ -195,13 +225,10 @@ class Portal(object):
 		self.resos[1][loc] = 0
 		self.b = 255
 		while self.b >= 20:
-			self.pixels = [(self.b,self.b,self.b)]*self.link_len
-			self.client.put_pixels(self.pixels,channel=0)
-			self.client.put_pixels(self.pixels,channel=0)
+			self.set_pixel_range(loc)
+			self.put_px_range(self.start_channel, self.link_len, (self.b,self.b,self,b), self.fadecandy)
 			time.sleep(0.1)
-			self.pixels = self.blk*self.link_len
-			self.client.put_pixels(self.pixels,channel=0)
-			self.client.put_pixels(self.pixels,channel=0)
+			self.put_px_range(self.start_channel, self.link_len, self.blk, self.fadecandy)
 			self.b = self.b/2
 	def set_reso_health(self, loc, health):
 		if health < 100:
@@ -266,3 +293,60 @@ class Portal(object):
 	def set_fx_volume(self, fxv):
 		self.fx_vol = fxv
 		return self.fx_vol
+		
+	def set_pixel_range(self,object_id):  #returns mapping for each lightup object in the form of [start_pixel,length,fadecandy board]
+		#object ids: 0-7 are the links going clockwise from rear left link
+		if object_id == 0: #chan 0 & 1 for long link 1, North link?, back left corner of tent
+			self.link_len = 92
+			self.start_channel = 0
+			self.fadecandy = 0
+		elif object_id == 1: # 2 & 3 for long link 2, back right corner
+			self.link_len = 92
+			self.start_channel = 2
+			self.fadecandy = 0
+		elif object_id == 2: #short links, single channel
+			self.link_len = 64
+			self.start_channel = 4
+			self.fadecandy = 0
+		elif object_id == 3:
+			self.link_len = 64
+			self.start_channel = 0
+			self.fadecandy = 1
+		elif loc == 4: # 1 & 2 for long link reso 5, front right corner
+			self.link_len = 92
+			self.start_channel = 1
+			self.fadecandy = 1
+		elif loc == 5:   #3 & 4 for long link reso 6, front left corner
+			self.link_len = 92
+			self.start_channel = 3
+			self.fadecandy = 1
+		elif loc == 6: # chan 5 for forward left short link
+			self.link_len = 64
+			self.start_channel = 5
+			self.fadecandy = 1
+		elif loc == 7:
+			self.link_len = 64
+			self.start_channel = 5
+			self.fadecandy = 0
+			
+	def put_px_range(self, _start, _length, _color, _fc, _delay = 0):   #set all pixels in range a color
+		for i in range(_start, length):
+			if _fc == 0:
+				pixels[i] = _color
+				if _delay > 0:
+					self.client.put_pixels(pixels)
+			elif _fc == 1:
+				pixels2[i] = _color
+				if _delay > 0:
+					self.client2.put_pixels(pixels2)
+			self.time.wait(_delay)
+		if _fc == 0:
+			self.client.put_pixels(pixels)
+			self.client.put_pixels(pixels)
+		elif _fc == 1:
+			self.client2.put_pixels(pixels2)
+			self.client2.put_pixels(pixels2)
+	def set_brightness(self, bright): #set 0-100 brightness
+		self._brt = float(bright)/100
+		opc.setColorCorection(2.5,_self.brt,_self.brt,_self.brt)
+				
