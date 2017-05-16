@@ -14,7 +14,7 @@ class Portal(object):
 		self._buf = 2048
 		#init pygame mixer if needed--------------
 		if pygame.mixer.get_init() == None:
-			pygame.mixer.pre_init(44100, -16, 2, buf)
+			pygame.mixer.pre_init(44100, -16, 2, self._buf)
 			pygame.mixer.init()
 		#audio params, time in ms
 		self.fadeTime = 4000
@@ -60,24 +60,25 @@ class Portal(object):
 		
 		#-----Start HW Interfaces
 		if start_fcclient:
-			init_fcclient(ADDRESS_2='') #init only FC board 1 until we have both set up
-			init_serial() #Set USB serial port here if necessary
+			self.init_fcclient() #init only FC board 1 until we have both set up
+		if start_serial:
+			self.init_serial() #Set USB serial port here if necessary
 		
 		#--setup lighting color vars etc
 		#
 		#colors is rgb for L1-L8
 		self.colors = [(254, 206, 0),(255, 168, 48),(255, 115, 21),(228, 0, 0),(253, 41, 146),(235, 38, 205),(193, 36, 224),(150, 39, 244)]
-		self.blk = [(0,0,0)]
+		self.blk = (0,0,0)
 		
 		
 		self.link_len = 64   #num of LEDs in link, fadecandy max 64 per channel
 		self.start_channel = 0
-		self.pixels = self.blk*512
-		self.pixels2 = self.blk*512   #TODO: list of lists to hold all pixels for all resos?
+		self.pixels = [self.blk]*512
+		self.pixels2 = [self.blk]*512   #TODO: list of lists to hold all pixels for all resos?
 		self.client.put_pixels(self.pixels) #TODO: channel=all
 		self.client.put_pixels(self.pixels)
-		self.client2.put_pixels(self.pixels)
-		self.client2.put_pixels(self.pixels)
+		self.client2.put_pixels(self.pixels2)
+		self.client2.put_pixels(self.pixels2)
 		
 		#-----OTHER PORTAL PROPERTIES & VARS
 		#   
@@ -85,9 +86,9 @@ class Portal(object):
 		self.faction = faction
 		self._faclist = ['neu','enl','res']
 		self.level = level
-		self._lvl = np.sum(self.resos[0],dtype='float16')/8
 		self._fxplay = False
 		self.resos = [[0,0,0,0,0,0,0,0] , [0,0,0,0,0,0,0,0]]
+		self._lvl = np.sum(self.resos[0],dtype='float16')/8
 	
 	#-----LIGHTS-------
 	#
@@ -183,10 +184,7 @@ class Portal(object):
 			if 0 <= loc <= 2 or loc == 7:
 				if self.client.put_pixels(self.pixels):
 					self.set_pixel_range(loc)			
-					for i in range(self.start_channel,self.start_channel + self.link_len):
-						self.pixels[i] = self.colors[rank-1]
-						self.client.put_pixels(self.pixels)
-						time.sleep(0.05)
+					self.put_px_range(self.start_channel, self.link_len, self.colors[rank-1], self.fadecandy, 0.05)
 					self.client.put_pixels(self.pixels)
 					if self._lvl==0:
 						self.ada_portal.play()
@@ -202,10 +200,7 @@ class Portal(object):
 			elif 3 >= loc <= 6:
 				if self.client2.put_pixels(self.pixels2):
 					self.set_pixel_range(loc)
-					for i in range(self.start_channel,self.start_channel + self.link_len):
-						self.pixels2[i] = self.colors[rank-1]
-						self.client.put_pixels2(self.pixels)
-						time.sleep(0.05)
+					self.put_px_range(self.start_channel, self.link_len, self.colors[rank-1], self.fadecandy, 0.05)
 					self.client2.put_pixels(self.pixels)
 					if self._lvl==0:
 						self.ada_portal.play()
@@ -215,7 +210,7 @@ class Portal(object):
 						self.ada_goodwork.play()
 					o = 'sent'
 				else:
-					o = 'Fadecandy1 not connected'
+					o = 'Fadecandy2 not connected'
 				self.get_level()
 				return o
 	def get_resos(self):
@@ -226,13 +221,14 @@ class Portal(object):
 		self.b = 255
 		while self.b >= 20:
 			self.set_pixel_range(loc)
-			self.put_px_range(self.start_channel, self.link_len, (self.b,self.b,self,b), self.fadecandy)
+			self.put_px_range(self.start_channel, self.link_len, (self.b,self.b,self.b), self.fadecandy)
 			time.sleep(0.1)
 			self.put_px_range(self.start_channel, self.link_len, self.blk, self.fadecandy)
 			self.b = self.b/2
+			
 	def set_reso_health(self, loc, health):
 		if health < 100:
-			raise Warning('Invalid Health Value %h for Reso %l : Health not set' % health,loc)
+			print 'Invalid Health Value %h for Reso %l : Health not set' % health,loc
 		elif health <= 0:
 			self.destroy_reso(loc)
 			print 'Reso %l destroyed' % loc+1
@@ -312,40 +308,41 @@ class Portal(object):
 			self.link_len = 64
 			self.start_channel = 0
 			self.fadecandy = 1
-		elif loc == 4: # 1 & 2 for long link reso 5, front right corner
+		elif object_id == 4: # 1 & 2 for long link reso 5, front right corner
 			self.link_len = 92
 			self.start_channel = 1
 			self.fadecandy = 1
-		elif loc == 5:   #3 & 4 for long link reso 6, front left corner
+		elif object_id == 5:   #3 & 4 for long link reso 6, front left corner
 			self.link_len = 92
 			self.start_channel = 3
 			self.fadecandy = 1
-		elif loc == 6: # chan 5 for forward left short link
+		elif object_id == 6: # chan 5 for forward left short link
 			self.link_len = 64
 			self.start_channel = 5
 			self.fadecandy = 1
-		elif loc == 7:
+		elif object_id == 7:
 			self.link_len = 64
 			self.start_channel = 5
 			self.fadecandy = 0
 			
 	def put_px_range(self, _start, _length, _color, _fc, _delay = 0):   #set all pixels in range a color
-		for i in range(_start, length):
+		for i in range(_start*64, (_start*64)+_length):
 			if _fc == 0:
-				pixels[i] = _color
+				self.pixels[i] = _color
 				if _delay > 0:
-					self.client.put_pixels(pixels)
+					self.client.put_pixels(self.pixels)
 			elif _fc == 1:
-				pixels2[i] = _color
+				self.pixels2[i] = _color
 				if _delay > 0:
-					self.client2.put_pixels(pixels2)
-			self.time.wait(_delay)
+					self.client2.put_pixels(self.pixels2)
+			time.sleep(_delay)
 		if _fc == 0:
-			self.client.put_pixels(pixels)
-			self.client.put_pixels(pixels)
+			self.client.put_pixels(self.pixels)
+			self.client.put_pixels(self.pixels)
 		elif _fc == 1:
-			self.client2.put_pixels(pixels2)
-			self.client2.put_pixels(pixels2)
+			self.client2.put_pixels(self.pixels2)
+			self.client2.put_pixels(self.pixels2)
+			
 	def set_brightness(self, bright): #set 0-100 brightness
 		self._brt = float(bright)/100
 		opc.setColorCorection(2.5,_self.brt,_self.brt,_self.brt)
