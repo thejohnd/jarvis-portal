@@ -84,7 +84,7 @@ class Portal(object):
         #   
         #set starting portal properties
         self.faction = faction
-        self._faclist = ['neu','enl','res']
+        self._faclist = ['neutral','enlightened','resistance']
         self.level = level
         self._fxplay = False
         self.resos = [[0,0,0,0,0,0,0,0] , [0,0,0,0,0,0,0,0]]
@@ -128,7 +128,7 @@ class Portal(object):
         return self.faction
     
     def set_faction(self, faction):
-        if faction != self.faction and (faction in _faclist):
+        if faction != self.faction and (faction in self._faclist):
             if pygame.mixer.music.get_busy():
                 pygame.mixer.fadeout(self.fadeTime)
                 self.faction = faction
