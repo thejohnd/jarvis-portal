@@ -183,8 +183,10 @@ class Portal(object):
             self.reso_deploy.play()
             if 0 <= loc <= 2 or loc == 7:
                 if self.client.put_pixels(self.pixels):
-                    self.set_pixel_range(loc)           
-                    self.put_px_range(self.start_channel, self.link_len, self.colors[rank-1], self.fadecandy, 0.02)
+                    self.set_pixel_range(loc)   #set range for link       
+                    self.put_px_range(self.start_channel, self.link_len, self.colors[rank-1], self.fadecandy, 0.02)  #show link animation
+                    self.set_pixel_range(loc+10)  #set range for associated reso     
+                    self.put_px_range(self.start_channel, self.link_len, self.colors[rank-1], self.fadecandy)  #show reso color
                     self.client.put_pixels(self.pixels)
                     if self._lvl==0:
                         self.ada_portal.play()
@@ -225,6 +227,7 @@ class Portal(object):
             time.sleep(0.1)
             self.put_px_range(self.start_channel, self.link_len, self.blk, self.fadecandy)
             self.b = self.b/2
+        self.get_level()
             
     def set_reso_health(self, loc, health):
         if health < 100:
@@ -298,11 +301,11 @@ class Portal(object):
             self.fadecandy = 0
         elif object_id == 1: # 2 & 3 for long link 2, back right corner
             self.link_len = 92
-            self.start_channel = 2
+            self.start_channel = 2*64
             self.fadecandy = 0
         elif object_id == 2: #short links, single channel
             self.link_len = 64
-            self.start_channel = 4
+            self.start_channel = 4*64
             self.fadecandy = 0
         elif object_id == 3:
             self.link_len = 64
@@ -310,19 +313,51 @@ class Portal(object):
             self.fadecandy = 1
         elif object_id == 4: # 1 & 2 for long link reso 5, front right corner
             self.link_len = 92
-            self.start_channel = 1
+            self.start_channel = 1*64
             self.fadecandy = 1
         elif object_id == 5:   #3 & 4 for long link reso 6, front left corner
             self.link_len = 92
-            self.start_channel = 3
+            self.start_channel = 3*64
             self.fadecandy = 1
         elif object_id == 6: # chan 5 for forward left short link
             self.link_len = 64
-            self.start_channel = 5
+            self.start_channel = 5*64
             self.fadecandy = 1
         elif object_id == 7:
             self.link_len = 64
-            self.start_channel = 5
+            self.start_channel = 5*64
+            self.fadecandy = 0
+        elif object_id == 10:
+            self.link_len = 24
+            self.start_channel = 93
+            self.fadecandy = 0
+        elif object_id == 11:
+            self.link_len = 24
+            self.start_channel = (2*64)+93
+            self.fadecandy = 0
+        elif object_id == 12: #both mid short reso on chan6 FC1
+            self.link_len = 8
+            self.start_channel = 6*64
+            self.fadecandy = 0
+        elif object_id == 13: #both mid short reso on chan6 FC1
+            self.link_len = 8
+            self.start_channel = (6*64)+9
+            self.fadecandy = 0
+        elif object_id == 14: #front long reso on FC2 long link
+            self.link_len = 8
+            self.start_channel = (2*64)+93
+            self.fadecandy = 1
+        elif object_id == 15: #front long reso on FC2 long link
+            self.link_len = 8
+            self.start_channel = (4*64)+93
+            self.fadecandy = 1
+        elif object_id == 16:
+            self.link_len = 8
+            self.start_channel = 7*64
+            self.fadecandy = 0
+        elif object_id == 16:
+            self.link_len = 8
+            self.start_channel = (7*64)+9
             self.fadecandy = 0
             
     def put_px_range(self, _start, _length, _color, _fc, _delay = 0):   #set all pixels in range a color
