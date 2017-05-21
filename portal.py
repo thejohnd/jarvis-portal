@@ -57,6 +57,7 @@ class Portal(object):
         self.ada_portal = pygame.mixer.Sound('./sounds/speech_portal_en.ogg')
         self.ada_online = pygame.mixer.Sound('./sounds/speech_online_en.ogg')
         self.ada_goodwork = pygame.mixer.Sound('./sounds/speech_good_work_en.ogg')
+        self.destroyed = pygame.mixer.Sound('./sounds/sfx_resonator_damage_high.ogg')
         
         #-----Start HW Interfaces
         if start_fcclient:
@@ -197,6 +198,8 @@ class Portal(object):
                     o = 'sent'
                 else:
                     o = 'Fadecandy1 not connected'
+                if loc == 0:
+					self.put_px_range(7*64,64,self.colors[rank-1],0,0.02)
                 self.get_level()
                 return o
             elif 3 >= loc <= 6:
@@ -227,6 +230,7 @@ class Portal(object):
             time.sleep(0.1)
             self.put_px_range(self.start_channel, self.link_len, self.blk, self.fadecandy)
             self.b = self.b/2
+        self.destroyed.play()
         self.get_level()
             
     def set_reso_health(self, loc, health):
@@ -296,11 +300,11 @@ class Portal(object):
     def set_pixel_range(self,object_id):  #returns mapping for each lightup object in the form of [start_pixel,length,fadecandy board]
         #object ids: 0-7 are the links going clockwise from rear left link
         if object_id == 0: #chan 0 & 1 for long link 1, North link?, back left corner of tent
-            self.link_len = 92
+            self.link_len = 128
             self.start_channel = 0
             self.fadecandy = 0
         elif object_id == 1: # 2 & 3 for long link 2, back right corner
-            self.link_len = 92
+            self.link_len = 128
             self.start_channel = 2*64
             self.fadecandy = 0
         elif object_id == 2: #short links, single channel
