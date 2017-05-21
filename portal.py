@@ -186,8 +186,8 @@ class Portal(object):
                     self.set_pixel_range(loc)   #set range for link       
                     self.put_px_range(self.start_channel, self.link_len, self.colors[rank-1], self.fadecandy, 0.02)  #show link animation
                     self.set_pixel_range(loc+10)  #set range for associated reso     
-                    self.put_px_range(self.start_channel, self.link_len, self.colors[rank-1], self.fadecandy)  #show reso color
-                    self.client.put_pixels(self.pixels)
+                    #self.put_px_range(self.start_channel, self.link_len, self.colors[rank-1], self.fadecandy)  #show reso color
+                    #self.client.put_pixels(self.pixels)
                     if self._lvl==0:
                         self.ada_portal.play()
                         time.sleep(self.ada_portal.get_length())
