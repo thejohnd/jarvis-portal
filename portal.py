@@ -214,38 +214,42 @@ class Portal(object):
                         self.set_faction(faction)
                 o = 'sent'
             else:
-                o = 'Fadecandy1 not connected'
+                o = 'Fadecandy not connected'
             #reso lights hotfix shitcode
             if loc == 0:
                 self.put_px_range(7*64,64,self.colors[rank-1],0,0.02)
             self.get_level()
             return o
-            if self.get_level() == 8:
-                self.epic_jarvis()
+            #if self.get_level() == 8:
+            #   self.epic_jarvis()
             
     
     #GET RESOS
     def get_resos(self):
         return self.resos
     
-    #DESTROY RESO
+    #DESTROY RESO        
     def destroy_reso(self, loc):
-        self.resos[0][loc] = 0
-        self.resos[1][loc] = 0
-        self.b = 255
-        self.resobust = self.crit.play()
-        time.sleep(self.crit.get_length())
-        self.resobust.queue(self.destroyed)
-        while self.b >= 20:
-            self.set_pixel_range(loc)
-            self.put_px_range(self.start_channel, self.link_len, (self.b,self.b,self.b), self.fadecandy)
-            self.put_px_range(1023, 1, self.blk, self.fadecandy,0.1) #non-blocking delay hack
-            self.put_px_range(self.start_channel, self.link_len, self.blk, self.fadecandy, 0.005)
-            self.b = self.b/2
-        self.get_level()
-        if self._lvl == 0:
-            self.portal_dead.play()
-            self.set_faction('neu')
+        if self.resos[0][loc] == 0:
+            print "No resonator at specified location"
+        else:
+            self.resos[0][loc] = 0
+            self.resos[1][loc] = 0
+            self.b = 255
+            self.resobust = self.crit.play()
+            #time.sleep(self.crit.get_length())
+            self.f = threading.Thread(target=self.resobust.queue,args=(self.destroyed,)).start()
+            while self.b >= 20:
+                self.set_pixel_range(loc)
+                self.put_px_range(self.start_channel, self.link_len, (self.b,self.b,self.b), self.fadecandy)
+                self.put_px_range(1023, 1, self.blk, self.fadecandy,0.1) #non-blocking delay hack
+                self.put_px_range(self.start_channel, self.link_len, self.blk, self.fadecandy, 0.002)
+                self.b = self.b/2
+            self.get_level()
+            if self._lvl == 0:
+                self.portal_dead.play()
+                self.set_faction('neu')
+            print "Resonator %r destroyed" % loc
             
     def set_reso_health(self, loc, health):
         if health < 100:
