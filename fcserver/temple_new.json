@@ -1,0 +1,29 @@
+{
+    "listen": ["127.0.0.1", 7890],
+    "verbose": true,
+
+    "color": {
+        "gamma": 1.22,
+        "whitepoint": [0.28, 0.195, 0.216],
+        "linearSlope": 1.0
+    },
+
+    "devices": [
+        {
+            "type": "fadecandy",
+            "serial": "LLPPNLVNTXGNWLQF",
+            "map": [
+                [ 0, 0, 0, 512 ]
+            ]
+        },
+        {
+            "type": "fadecandy",
+            "serial": "OYUCTJZJIADXDVUP",
+            "map": [
+                [ 0, 512, 256, 64 ],
+                [ 0, 576, 0, 256 ],
+                [ 0, 832, 320, 192 ]
+            ]
+        }
+    ]
+}

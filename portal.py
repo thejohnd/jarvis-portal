@@ -442,7 +442,8 @@ class Portal(object):
         pygame.mixer.music.load('./sounds/thorinair.mp3')
         pygame.mixer.music.play()
         time.sleep(19)
-        self.srl.write('e9')
+        if self.srl.name:
+            self.srl.write('e9')
         for m in range(3):
             for i in range(64):
                 self._rpxinrange = 1023
@@ -455,7 +456,8 @@ class Portal(object):
                             self.client.put_pixels(self.pixels)
                             self.link_len = i+1
                     if l >= random.randrange(l+1):
-                        self.srl.write('e3')
+                        if self.srl.name:
+                            self.srl.write('e3')
                     self.put_px_range(self.start_channel, self.link_len, (58+l,255-(l*25),78-i),0)
                     self.set_pixel_range(11)
                     self.put_px_range(self.start_channel, self.link_len, (0,255-(l*18),32),0)
@@ -466,7 +468,8 @@ class Portal(object):
                     #        self.pixels[self._rpxinrange+j] = (255,255,200)
                     time.sleep(0.1)
                     self.client.put_pixels(self.pixels)
-                    self.srl.write('e9')
+                    if self.srl.name:
+                        self.srl.write('e9')
             for xl in range(24):
                 for x in [1,3,7,9]:
                     self.put_px_range(x*64, xl, (58,255-(x*10),12),0,0.03)
