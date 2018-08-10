@@ -3,9 +3,9 @@
     "verbose": true,
 
     "color": {
-        "gamma": 1.22,
-        "whitepoint": [0.28, 0.195, 0.216],
-        "linearSlope": 1.0
+        "gamma": 2.61,
+        "whitepoint": [0.91, 0.87, 0.80],
+        "linearSlope": 0.8
     },
 
     "devices": [
