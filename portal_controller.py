@@ -1,3 +1,5 @@
+#not used or properly tested, may not actually work
+
 import portal
 global main_menu_functions
 global macro_menu_functions
