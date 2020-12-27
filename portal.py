@@ -1,10 +1,13 @@
 import pygame
 import random
 import threading
-import numpy as np
+import numpy
+from numpy import *
 import opc
 import time
 import serial
+
+
 
 class Portal(object):
     def __init__(self, faction = 'neu', level = 1, start_fcclient = True, start_serial = False):
@@ -60,10 +63,18 @@ class Portal(object):
         self.xm = pygame.mixer.Sound('./sounds/sfx_xm_pickup.ogg')
         
         #banks
-        self.xtras = [self.space1, self.space2, self.space3, self.space4, self.space5, self.space6, self.flipswirl, self.hackparticles, self.hackpop, self.xm]
-        self.enl = [self.wraith, self.wraith2, self.static, self.heartbeat, self.beeps, self.ring, self.swell, self.wind]+self.xtras
-        self.res = [self.energy, self.pulse_stereo, self.pulse_warm, self.crystal, self.beeps, self.ring, self.swell, self.wind]+self.xtras
-        self.neu = [self.n_crystal, self.impacts, self.whale, self.whale_alt, self.beeps, self.ring, self.swell, self.wind]+self.xtras
+        self.xtras = [self.space1, self.space2, self.space3, self.space4,
+                      self.space5, self.space6, self.flipswirl,
+                      self.hackparticles, self.hackpop, self.xm]
+        
+        self.enl = [self.wraith, self.wraith2, self.static, self.heartbeat,
+        self.beeps, self.ring, self.swell, self.wind]+self.xtras
+        
+        self.res = [self.energy, self.pulse_stereo, self.pulse_warm,
+        self.crystal, self.beeps, self.ring, self.swell, self.wind]+self.xtras
+        
+        self.neu = [self.n_crystal, self.impacts, self.whale, self.whale_alt,
+        self.beeps, self.ring, self.swell, self.wind]+self.xtras
         #speech = pygame.mixer.Channel(7)
         
         #triggered on action sounds
@@ -86,13 +97,21 @@ class Portal(object):
             self.init_serial() #Set USB serial port here if necessary
             self.srl.write('n5')
         else:
-            self.init_serial(port = None) #init serial with no port so things don't break
-            print "Serial port not started"
+            self.init_serial(port = None)
+            #init serial with no port so things don't break
+            print("Serial port not started")
         
         #--setup lighting color vars etc
         #
         #colors is rgb for L1-L8
-        self.colors = [(254, 206, 0),(255, 168, 48),(255, 115, 21),(228, 0, 0),(253, 41, 146),(235, 38, 205),(193, 36, 224),(150, 39, 244)]
+        self.colors = [(254, 206, 0),
+                       (255, 168, 48),
+                       (255, 115, 21),
+                       (228, 0, 0),
+                       (253, 41, 146),
+                       (235, 38, 205),
+                       (193, 36, 224),
+                       (150, 39, 244)]
         self.blk = (0,0,0)
         
         
@@ -112,7 +131,7 @@ class Portal(object):
         self.level = level
         self._fxplay = False
         self.resos = [[0,0,0,0,0,0,0,0] , [0,0,0,0,0,0,0,0]]
-        self._lvl = np.sum(self.resos[0],dtype='float16')/8
+        self._lvl = sum(self.resos[0],dtype='float16')/8
     
     #-----LIGHTS-------
     #
@@ -124,19 +143,21 @@ class Portal(object):
         
         # Test if it can connect
         if self.client.can_connect():
-            print 'connected to %s' % ADDRESS_1
+            print('connected to %s') % ADDRESS_1
         else:
             # We could exit here, but instead let's just print a warning
             # and then keep trying to send pixels in case the server
             # appears later
-            print 'WARNING: could not connect to %s... Is fcserver running?\nClient will retry connection each time a pixel update is sent' % ADDRESS_1
+            print('''WARNING: could not connect to %s... Is fcserver
+            running?\nClient will retry connection each time a pixel update is
+            sent' % ADDRESS_1''')
         self.clients = [self.client]
     
     def init_serial(self, port = '/dev/ttyACM0'):
         #----serial interface to Arduino for DMX & Relay switch
         ## MAKE SURE TO SET USB PORT FOR CURRENT SYTEM CONFIG!!! 
         self.srl = serial.Serial(port,9600)
-        print 'Using serial port %s' % self.srl.name    
+        print('Using serial port %s') % self.srl.name    
     
     #get/set FACTION
     def get_faction(self):
@@ -156,9 +177,9 @@ class Portal(object):
                     self.srl.write('5')
                 else:
                     self.srl.write('9')
-                print 'Faction lighting set to %s' % self.faction
+                print('Faction lighting set to %s')% self.faction
             else:
-                print 'Serial connection not enabled, lighting data not set'
+                print('Serial connection not enabled, lighting data not set')
             return self.faction
         else:
             return 0
@@ -180,7 +201,7 @@ class Portal(object):
     #      triggers deploy FX
     #    - 
     def get_level(self):
-        self._lvl = np.sum(self.resos[0],dtype='float16')/8
+        self._lvl = sum(self.resos[0],dtype='float16')/8
         if self._lvl < 1:
             self.level = 1
         else:
@@ -231,7 +252,7 @@ class Portal(object):
     #DESTROY RESO        
     def destroy_reso(self, loc):
         if self.resos[0][loc] == 0:
-            print "No resonator at specified location"
+            print("No resonator at specified location")
         else:
             self.resos[0][loc] = 0
             self.resos[1][loc] = 0
@@ -249,14 +270,14 @@ class Portal(object):
             if self._lvl == 0:
                 self.portal_dead.play()
                 self.set_faction('neu')
-            print "Resonator %r destroyed" % loc
+            print("Resonator %r destroyed")% loc
             
     def set_reso_health(self, loc, health):
         if health < 100:
-            print 'Invalid Health Value %h for Reso %l : Health not set' % health,loc
+            print('Invalid Health Value %h for Reso %l : Health not set')% health,loc
         elif health <= 0:
             self.destroy_reso(loc)
-            print 'Reso %l destroyed' % loc+1
+            print('Reso %l destroyed' % loc+1)
         else:
             self.resos[1][loc] = health
             #TODO set link brightness based on health
